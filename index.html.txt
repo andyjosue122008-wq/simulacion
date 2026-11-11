@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Banko Mundial — Simulación educativa de phishing</title>
+<style>
+  :root{
+    --bg: #0f1b2d;
+    --panel: #ffffff;
+    --ink: #15202b;
+    --muted: #5b6b7a;
+    --accent: #1f5c8b;
+    --accent-dark: #123f61;
+    --danger: #b3261e;
+    --danger-bg: #fdecea;
+    --warn-band: #d8a51d;
+    --ok: #1c7a4b;
+    --line: #e1e6ea;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Banda de advertencia fija, siempre visible */
+  .sim-band {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 50;
+    background: repeating-linear-gradient(
+      135deg,
+      var(--warn-band), var(--warn-band) 12px,
+      #1a1a1a 12px, #1a1a1a 24px
+    );
+    color: #1a1a1a;
+  }
+  .sim-band__inner {
+    background: #fff8e1;
+    margin: 0 auto;
+    max-width: 960px;
+    padding: 10px 16px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    border-left: 6px solid var(--warn-band);
+    border-right: 6px solid var(--warn-band);
+  }
+
+  .page {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 48px;
+  }
+
+  .bank-header {
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    margin-bottom: 18px;
+    color: #eaf1f8;
+  }
+  .bank-header .mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  .bank-header .mark svg { flex-shrink: 0; }
+  .bank-header p {
+    margin: 6px 0 0;
+    font-size: 0.8rem;
+    color: #9fb3c5;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--panel);
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    overflow: hidden;
+  }
+
+  .alert {
+    background: var(--danger-bg);
+    color: var(--danger);
+    padding: 16px 20px;
+    border-bottom: 1px solid #f3c7c3;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+  .alert strong { display: block; margin-bottom: 4px; font-size: 0.98rem; }
+
+  .form-body { padding: 24px 20px 20px; }
+  .form-body h1 {
+    font-size: 1.05rem;
+    margin: 0 0 4px;
+  }
+  .form-body .sub {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0 0 20px;
+  }
+
+  label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin: 14px 0 6px;
+  }
+  input {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: #fafbfc;
+  }
+  input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    background: #fff;
+  }
+
+  button.cta {
+    width: 100%;
+    margin-top: 22px;
+    padding: 13px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.cta:hover { background: var(--accent-dark); }
+  button.cta:focus-visible { outline: 3px solid #123f61; outline-offset: 2px; }
+
+  .footer-note {
+    text-align: center;
+    font-size: 0.72rem;
+    color: #7f93a5;
+    margin-top: 18px;
+    max-width: 420px;
+  }
+
+  /* Pantalla de revelación educativa */
+  .reveal {
+    display: none;
+    width: 100%;
+    max-width: 560px;
+    background: var(--panel);
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    padding: 28px 24px 30px;
+  }
+  .reveal.show { display: block; }
+  .card.hide { display: none; }
+
+  .reveal .badge {
+    display: inline-block;
+    background: var(--ok);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+  }
+  .reveal h2 { margin: 0 0 8px; font-size: 1.2rem; }
+  .reveal p.lead { color: var(--muted); font-size: 0.92rem; margin: 0 0 18px; line-height: 1.5; }
+
+  .reveal ul {
+    margin: 0 0 20px;
+    padding: 0;
+    list-style: none;
+  }
+  .reveal li {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+  .reveal li:first-child { border-top: none; }
+  .reveal li .flag {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--danger-bg);
+    color: var(--danger);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.78rem; font-weight: 700;
+  }
+  .reveal .note-box {
+    background: #f4f8fb;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 0.82rem;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .reveal .note-box strong { color: var(--accent-dark); }
+
+  .reveal .restart {
+    margin-top: 20px;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--accent-dark);
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  @media (max-width: 420px) {
+    .card, .reveal { border-radius: 0; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="sim-band">
+    <div class="sim-band__inner">
+      
+    </div>
+  </div>
+
+  <div class="page">
+
+    <div class="bank-header">
+      <span class="mark">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7V9H22V7L12 2Z" fill="#eaf1f8"/>
+          <rect x="4" y="10" width="2.5" height="9" fill="#eaf1f8"/>
+          <rect x="10.75" y="10" width="2.5" height="9" fill="#eaf1f8"/>
+          <rect x="17.5" y="10" width="2.5" height="9" fill="#eaf1f8"/>
+          <rect x="3" y="20" width="18" height="2" fill="#eaf1f8"/>
+        </svg>
+        Banco Pichincha
+      </span
+      <p>
+    </div>
+
+    <div class="card" id="loginCard">
+      <div class="alert">
+        <strong>⚠️ Alerta: actividad sospechosa detectada</strong>
+        Hemos suspendido temporalmente el acceso a tu banca en línea por un intento de inicio de sesión no reconocido. Verifica tu identidad para evitar el bloqueo permanente de tus fondos.
+      </div>
+
+      <div class="form-body">
+        <h1>Verificar identidad y restaurar acceso</h1>
+        <p class="sub">Ingresa tus datos para cancelar la operación sospechosa.</p>
+
+        <form id="phishForm" autocomplete="off">
+          <label for="user">Usuario o número de cuenta</label>
+          <input type="text" id="user" name="user" placeholder="Ej. 0102030405">
+
+          <label for="pass">Contraseña</label>
+          <input type="password" id="pass" name="pass" placeholder="••••••••">
+
+          <label for="pregunta">Pregunta de seguridad: ¿Nombre de tu primera mascota?</label>
+          <input type="text" id="pregunta" name="pregunta" placeholder="Respuesta">
+
+          <label for="otp">Código de verificación recibido por SMS</label>
+          <input type="text" id="otp" name="otp" placeholder="6 dígitos">
+
+          <button type="submit" class="cta">🔒 Verificar identidad y restaurar cuenta</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="reveal" id="revealCard">
+      <span class="badge">SIMULACIÓN COMPLETADA</span>
+      <h2>Esto fue un ataque de phishing simulado</h2>
+      <p class="lead">
+        Ningún dato que escribiste fue enviado, guardado ni registrado en ningún servidor — este formulario nunca estuvo conectado a nada. Así es exactamente como opera un ataque real: si esta hubiera sido una página auténtica, tu usuario, contraseña, pregunta de seguridad y código SMS habrían quedado en manos de un atacante.
+      </p>
+
+      <ul>
+        <li><span class="flag">1</span> Presión y urgencia artificial: "bloqueo permanente" te empuja a actuar sin pensar.</li>
+        <li><span class="flag">2</span> Pide el código SMS o de verificación: ningún banco legítimo lo solicita en un formulario de "login".</li>
+        <li><span class="flag">3</span> Pregunta de seguridad incluida: un login normal nunca pide esto junto con la contraseña.</li>
+        <li><span class="flag">4</span> Llegó por un enlace (correo, SMS, anuncio) en vez de que tú escribieras la dirección del banco.</li>
+        <li><span class="flag">5</span> El dominio real nunca es el que aparece en el enlace del mensaje — siempre verifica la URL exacta.</li>
+      </ul>
+
+      <div class="note-box">
+        <strong>Qué hacer en la vida real:</strong> nunca ingreses tus credenciales desde un enlace recibido por correo, SMS o anuncio. Entra siempre escribiendo tú mismo la dirección del banco o usando su app oficial. Si recibes una alerta así, llama al banco por el teléfono que ya conocías, no al que te dé el mensaje.
+      </div>
+
+      <button class="restart" id="restartBtn">↺ Reiniciar la simulación</button>
+    </div>
+
+    <p class="footer-note">
+      
+    </p>
+  </div>
+
+<script>
+  const form = document.getElementById('phishForm');
+  const loginCard = document.getElementById('loginCard');
+  const reveal = document.getElementById('revealCard');
+  const restartBtn = document.getElementById('restartBtn');
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault(); // Nunca se envía nada a ningún servidor
+    form.reset();        // Se borra inmediatamente lo escrito, no se guarda en ninguna variable
+    loginCard.classList.add('hide');
+    reveal.classList.add('show');
+    reveal.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  restartBtn.addEventListener('click', function () {
+    reveal.classList.remove('show');
+    loginCard.classList.remove('hide');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>
+
+</body>
+</html>
